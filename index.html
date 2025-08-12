@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Adaptive Quiz – LLM Mastery</title>
+  <meta name="description" content="Self‑contained adaptive quiz for Large Language Models mastery: prompting, memory, roles/personas, hallucinations, tool use, evaluation." />
+  <style>
+    /* ============================================================
+       Adaptive Quiz – LLM Mastery (Single‑file Web App)
+       License: MIT (c) 2025 Emiliano Balderas R. & contributors
+       ------------------------------------------------------------
+       Design goals: clean, accessible, keyboard friendly, no deps
+       ============================================================ */
+    :root {
+      --bg: #0f172a;           /* slate-900 */
+      --bg-soft: #111827;      /* gray-900  */
+      --panel: #111827;        /* gray-900  */
+      --card: #0b1220;         /* custom */
+      --muted: #9ca3af;        /* gray-400 */
+      --text: #e5e7eb;         /* gray-200 */
+      --primary: #60a5fa;      /* blue-400 */
+      --primary-strong: #3b82f6; /* blue-500 */
+      --accent: #34d399;       /* emerald-400 */
+      --warn: #f59e0b;         /* amber-500 */
+      --danger: #f87171;       /* red-400 */
+      --ok: #4ade80;           /* green-400 */
+      --chip: #1f2937;         /* gray-800 */
+      --border: #1f2937;       /* gray-800 */
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 16px;
+      --radius-sm: 12px;
+      --radius-lg: 24px;
+      --focus: 0 0 0 3px rgba(96,165,250,.35);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; background: radial-gradient(1200px 800px at 10% 10%, #0b1220 0%, var(--bg) 45%, #0b0f1a 100%);
+      color: var(--text); font-family: var(--sans); line-height: 1.45;
+      -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+    }
+    a { color: var(--primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .wrap {
+      max-width: 980px; margin: 24px auto; padding: 16px; 
+    }
+    header {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .logo {
+      width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, #1e3a8a, #0ea5e9);
+      display: grid; place-items: center; box-shadow: var(--shadow);
+    }
+    .logo span { font-weight: 800; letter-spacing: .5px; }
+    h1 { font-size: 1.4rem; margin: 0; }
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+      overflow: hidden; backdrop-filter: blur(6px);
+    }
+    .card-header { padding: 16px 18px; border-bottom: 1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .card-body { padding: 18px; }
+    .row { display: grid; gap: 12px; }
+    .row-2 { grid-template-columns: 1fr 1fr; }
+    .row-responsive { grid-template-columns: 1fr; }
+    @media (min-width: 860px) { .row-responsive { grid-template-columns: 2fr 1fr; } }
+    .chips { display:flex; gap:8px; flex-wrap: wrap; }
+    .chip { background: var(--chip); color: var(--text); border: 1px solid var(--border); padding: 6px 10px; border-radius: 999px; font-size: .8rem; display:inline-flex; align-items:center; gap:8px; }
+    .chip .dot { width: 8px; height: 8px; border-radius: 50%; display:inline-block; }
+    .chip.easy .dot { background: #22c55e; }
+    .chip.medium .dot { background: #f59e0b; }
+    .chip.hard .dot { background: #ef4444; }
+    .progress { height: 10px; background: #0b1220; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+    .progress > div { height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary), var(--accent)); transition: width .3s ease; }
+    .muted { color: var(--muted); font-size: .9rem; }
+    .question {
+      font-size: 1.05rem; margin: 8px 0 4px; font-weight: 600;
+    }
+    .options { list-style: none; padding: 0; margin: 8px 0 0; display:grid; gap:8px; }
+    .option {
+      background: #0a1324; border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 10px 12px; display:flex; align-items:flex-start; gap:10px; cursor: pointer;
+    }
+    .option input { margin-top: 2px; }
+    .option:hover { border-color: #2b405f; }
+    .controls { display:flex; align-items:center; gap:8px; flex-wrap: wrap; margin-top: 10px; }
+    .btn {
+      background: linear-gradient(180deg, var(--primary), var(--primary-strong)); color: #0b1220; font-weight: 700;
+      border: none; padding: 10px 14px; border-radius: 12px; cursor: pointer; box-shadow: var(--shadow);
+    }
+    .btn.secondary { background: #1f2937; color: var(--text); }
+    .btn.ghost { background: transparent; color: var(--text); border:1px solid var(--border); }
+    .btn:focus-visible { outline: none; box-shadow: var(--focus); }
+    .slider { width: 220px; }
+    .statbar { display:grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin: 10px 0 0; }
+    .stat { background:#0a1324; border: 1px solid var(--border); padding: 10px 12px; border-radius: 12px; }
+    .stat .big { font-weight: 800; font-size: 1.1rem; }
+    .feedback { margin-top: 12px; padding: 12px; border-radius: 12px; border:1px solid var(--border); }
+    .feedback.ok { background: rgba(16,185,129,.08); border-color: rgba(16,185,129,.35); }
+    .feedback.no { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.35); }
+    .kbd { font-family: var(--mono); padding: 2px 6px; border-radius: 6px; background:#0b1220; border:1px solid var(--border); }
+    footer { margin-top: 22px; color: var(--muted); font-size: .9rem; }
+    .right { text-align: right; }
+    dialog[open] { border: 1px solid var(--border); border-radius: 14px; background: #0a1324; color: var(--text); box-shadow: var(--shadow); width: min(720px, 92vw); }
+    dialog::backdrop { background: rgba(0,0,0,.55); }
+    .modal-header { display:flex; justify-content:space-between; align-items:center; gap:8px; border-bottom:1px solid var(--border); padding: 12px 16px; }
+    .modal-body { padding: 14px 16px 18px; }
+    .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .field { display:flex; flex-direction: column; gap: 6px; }
+    input[type="number"], select, input[type="text"] {
+      background: #0b1220; color: var(--text); border:1px solid var(--border); border-radius: 10px; padding: 8px 10px;
+    }
+    .cat-toggle { display:flex; align-items:center; gap:8px; padding: 6px 8px; background:#0b1220; border:1px solid var(--border); border-radius: 10px; }
+    .hidden { display:none !important; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+    .linklike { color: var(--primary); cursor: pointer; text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="wrap" role="application">
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden="true"><span>QZ</span></div>
+        <div>
+          <h1>Adaptive Quiz – LLM Mastery</h1>
+          <div class="muted">Prompting • Memory • Roles • Hallucinations • Tool Use • Evaluation</div>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn secondary" id="btnSettings" aria-haspopup="dialog">Settings</button>
+        <button class="btn ghost" id="btnReset" title="Reset quiz (Alt+R)"><span aria-hidden>↻</span> Reset</button>
+      </div>
+    </header>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="chips" id="chips"></div>
+        <div style="min-width:240px; flex:1; max-width:380px;">
+          <div class="progress" aria-label="Progress"><div id="progressBar"></div></div>
+        </div>
+      </div>
+      <div class="card-body row-responsive" id="main">
+        <div>
+          <div id="qText" class="question" aria-live="polite"></div>
+          <ul id="options" class="options" role="listbox" aria-label="Answer choices"></ul>
+
+          <div class="controls" aria-label="Confidence selector">
+            <label for="conf" class="muted">Confidence: <span id="confVal">70%</span></label>
+            <input id="conf" class="slider" type="range" min="50" max="100" step="5" value="70" />
+            <button class="btn" id="btnSubmit" title="Submit (Enter)">Submit</button>
+            <button class="btn secondary hidden" id="btnNext" title="Next (N)">Next</button>
+          </div>
+
+          <div id="feedback" class="feedback hidden" role="status"></div>
+        </div>
+
+        <aside>
+          <div class="statbar">
+            <div class="stat"><div class="muted">Q</div><div class="big" id="statQ">1/12</div></div>
+            <div class="stat"><div class="muted">Accuracy</div><div class="big" id="statAcc">–</div></div>
+            <div class="stat"><div class="muted">Avg conf</div><div class="big" id="statConf">–</div></div>
+            <div class="stat"><div class="muted">Brier</div><div class="big" id="statBrier">–</div></div>
+          </div>
+          <div class="muted" style="margin-top:10px;">Keyboard: <span class="kbd">1–4</span> to choose, <span class="kbd">Enter</span> submit, <span class="kbd">N</span> next, <span class="kbd">Alt+R</span> reset.</div>
+        </aside>
+      </div>
+    </div>
+
+    <div id="results" class="card hidden" aria-live="polite" aria-label="Results">
+      <div class="card-header"><strong>Results</strong><div class="muted" id="attemptTime"></div></div>
+      <div class="card-body">
+        <div class="row row-2">
+          <div class="stat">
+            <div class="muted">Score</div>
+            <div class="big" id="rScore">–</div>
+          </div>
+          <div class="stat">
+            <div class="muted">Average Confidence</div>
+            <div class="big" id="rConf">–</div>
+          </div>
+          <div class="stat">
+            <div class="muted">Brier Score</div>
+            <div class="big" id="rBrier">–</div>
+          </div>
+          <div class="stat">
+            <div class="muted">Calibration Gap</div>
+            <div class="big" id="rCalib">–</div>
+          </div>
+        </div>
+        <div id="perCategory" style="margin-top:14px;"></div>
+        <div class="controls" style="margin-top:14px;">
+          <button class="btn" id="btnDownloadJSON">Export JSON</button>
+          <button class="btn secondary" id="btnDownloadCSV">Export CSV</button>
+          <button class="btn ghost" id="btnStartOver">Start Over</button>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <div>Single‑file app. No tracking. Attempts are stored locally in your browser (localStorage) only.</div>
+    </footer>
+  </div>
+
+  <!-- Settings Modal -->
+  <dialog id="dlgSettings" aria-labelledby="dlgTitle">
+    <div class="modal-header">
+      <strong id="dlgTitle">Settings</strong>
+      <button id="dlgClose" class="btn ghost">Close</button>
+    </div>
+    <div class="modal-body">
+      <div class="grid2">
+        <div class="field">
+          <label for="numQ"># Questions</label>
+          <input id="numQ" type="number" min="6" max="40" step="1" value="12" />
+        </div>
+        <div class="field">
+          <label for="seed">Seed (optional)</label>
+          <input id="seed" type="text" placeholder="random" />
+        </div>
+        <div class="field">
+          <label for="showExplain">Show explanations</label>
+          <select id="showExplain">
+            <option value="immediate">Immediately after each question</option>
+            <option value="end">At the end only</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="startDiff">Start difficulty</label>
+          <select id="startDiff">
+            <option value="2">Medium</option>
+            <option value="1">Easy</option>
+            <option value="3">Hard</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <div class="muted" style="margin-bottom:6px;">Include categories</div>
+        <div id="catToggles" class="chips"></div>
+      </div>
+      <div style="margin-top:12px;">
+        <label class="cat-toggle"><input type="checkbox" id="shuffleWithinDiff" checked /> Shuffle within same difficulty</label>
+        <label class="cat-toggle"><input type="checkbox" id="reuseIfNeeded" checked /> Allow reuse if pool exhausted</label>
+      </div>
+      <div class="muted" style="margin-top:14px;">Tip: Use a fixed Seed to reproduce an attempt deterministically.</div>
+    </div>
+  </dialog>
+
+  <script>
+  // =============================================================
+  // Utility: PRNG (Mulberry32) for deterministic shuffles
+  // =============================================================
+  function xmur3(str){ for(var i=0,h=1779033703^str.length;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),3432918353);h=h<<13|h>>>19;} return function(){h=Math.imul(h^h>>>16,2246822507);h=Math.imul(h^h>>>13,3266489909); return (h^h>>>16)>>>0; } }
+  function mulberry32(a){ return function(){var t=a+=0x6D2B79F5; t=Math.imul(t^t>>>15, t|1); t^=t+Math.imul(t^t>>>7, t|61); return ((t^t>>>14)>>>0)/4294967296; } }
+  function seededShuffle(array, rng){ const a=array.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(rng()* (i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+  // =============================================================
+  // Question Bank
+  // Categories: Prompting, Memory, Roles, Hallucination, Tools, Evaluation
+  // Difficulty: 1=Easy, 2=Medium, 3=Hard
+  // =============================================================
+  const QUESTION_BANK = [
+    // Prompting
+    {id:"P1", diff:1, cat:"Prompting", stem:"Which prompt trait most reduces ambiguity?", opts:["Asking for creativity only","Including a concrete goal and constraints","Using emojis to make it friendlier","Keeping it as short as possible"], ans:1, exp:"Clear goals + constraints reduce the solution space and ambiguity."},
+    {id:"P2", diff:2, cat:"Prompting", stem:"Chain-of-thought (CoT) is primarily used to…", opts:["Hide the reasoning from the user","Force the model to browse the web","Encourage step-by-step reasoning","Speed up generation by skipping steps"], ans:2, exp:"CoT (hidden or structured) nudges step-by-step reasoning for complex tasks."},
+    {id:"P3", diff:3, cat:"Prompting", stem:"You need reproducibility across reruns. Which is LEAST helpful?", opts:["Providing deterministic inputs and a fixed seed","Specifying formats and units explicitly","Adding few-shot examples that vary in style","Requesting the same temperature setting"], ans:2, exp:"Variable few-shot styles introduce stochasticity; consistent, fixed examples are better."},
+    {id:"P4", diff:2, cat:"Prompting", stem:"Best next step when a user request is underspecified?", opts:["Answer anyway with default assumptions","Refuse the task","Ask targeted clarifying questions","Output nothing until user clarifies"], ans:2, exp:"Targeted clarifying questions reduce rework and misalignment."},
+    {id:"P5", diff:1, cat:"Prompting", stem:"Which element belongs in a good instruction block?", opts:["Personal anecdotes","Precise acceptance criteria","Random quotes","Multiple emojis"], ans:1, exp:"Acceptance criteria define what success looks like."},
+    {id:"P6", diff:3, cat:"Prompting", stem:"For multi-step coding tasks with tests, which strategy is MOST robust?", opts:["Single giant prompt","Scaffolding with verify-at-each-step checks","Let the model self-select steps silently","Ask for final patch only"], ans:1, exp:"Scaffolding with explicit verification reduces compounding errors."},
+
+    // Memory
+    {id:"M1", diff:1, cat:"Memory", stem:"Short-term/chat history memory is mainly…", opts:["Persistent across devices","Cleared when starting a new thread","Editable by the OS only","Unrelated to context length"], ans:1, exp:"New threads reset chat history; it is scoped to the conversation."},
+    {id:"M2", diff:2, cat:"Memory", stem:"Which is a safe long-lived memory to store?", opts:["Confidential passwords","Ephemeral one-time codes","User’s stable tooling preferences","Sensitive health diagnoses without consent"], ans:2, exp:"Stable preferences improve UX; sensitive data requires explicit consent."},
+    {id:"M3", diff:3, cat:"Memory", stem:"Which risk increases with overly aggressive memory usage?", opts:["Lower personalization","Context dilution and leakage","Faster responses","Better calibration"], ans:1, exp:"Too much memory can dilute context and risk leaking irrelevant/old info."},
+    {id:"M4", diff:2, cat:"Memory", stem:"Best practice for updating a user preference memory?", opts:["Never overwrite; append forever","Overwrite silently","Confirm changes or ask for clarification","Delete all memories periodically"], ans:2, exp:"Confirming prevents accidental overwrites and respects user intent."},
+    {id:"M5", diff:1, cat:"Memory", stem:"Which is NOT a memory type?", opts:["Model weights","Conversation context","External knowledge base","CPU L3 cache"], ans:3, exp:"L3 cache is hardware, not an LLM memory modality."},
+    {id:"M6", diff:3, cat:"Memory", stem:"Ideal behavior after a user says ‘Forget X’?", opts:["Keep it but hide it","Delete it and confirm","Export it elsewhere","Ignore if useful"], ans:1, exp:"Respect deletion requests and confirm completion."},
+
+    // Roles / Persona
+    {id:"R1", diff:1, cat:"Roles", stem:"A ‘role’ in prompting primarily…", opts:["Defines legal liability","Sets behavioral guardrails and tone","Changes the base model","Grants new APIs"], ans:1, exp:"Role prompts define tone/guardrails but don’t change the base weights."},
+    {id:"R2", diff:2, cat:"Roles", stem:"What’s a common failure mode of personas?", opts:["Higher factuality","Style drift and over-commitment","Better calibration","Lower latency"], ans:1, exp:"Personas can induce style drift and over-commit to a voice."},
+    {id:"R3", diff:3, cat:"Roles", stem:"Best way to test persona impact?", opts:["Subjective feeling only","A/B with identical tasks and measures","Change several variables at once","Ask the model if persona helps"], ans:1, exp:"A/B testing with fixed tasks isolates persona effects."},
+    {id:"R4", diff:2, cat:"Roles", stem:"Which belongs in a role card?", opts:["Keyboard layout","Do’s and Don’ts","CPU frequency","Browser version"], ans:1, exp:"Role cards include Do/Don’t, goals, and examples."},
+
+    // Hallucination / Verification
+    {id:"H1", diff:1, cat:"Hallucination", stem:"A model ‘hallucination’ is…", opts:["A GPU error","A confident but false statement","A slow response","A refusal"], ans:1, exp:"Hallucinations are fluent, confident inaccuracies."},
+    {id:"H2", diff:2, cat:"Hallucination", stem:"Which plan best reduces hallucinations on factual queries?", opts:["Lower temperature only","Ask for sources + cross-check with a reliable tool","Use more emojis","Make the prompt longer without changes"], ans:1, exp:"Source requests + independent verification minimizes factual errors."},
+    {id:"H3", diff:3, cat:"Hallucination", stem:"When citing, which practice is MOST reliable?", opts:["Single source always","Multiple reputable sources with dates","Prefer social media","Skip dates to reduce bias"], ans:1, exp:"Use multiple reputable sources and include dates for context."},
+    {id:"H4", diff:2, cat:"Hallucination", stem:"What’s a red flag in model outputs?", opts:["Unfamiliar proper nouns stated with certainty","Hedging language","Explicit uncertainty","Instructions for verification"], ans:0, exp:"Confident unknown names often signal hallucination; verify."},
+
+    // Tool use
+    {id:"T1", diff:1, cat:"Tools", stem:"When should you use a web browsing tool?", opts:["Always","Never","When info is time-sensitive or niche","Only if the user asks for it"], ans:2, exp:"Use browsing for time-sensitive, niche, or uncertain facts."},
+    {id:"T2", diff:2, cat:"Tools", stem:"Best action when a task needs images from the web?", opts:["Generate from memory","Use an image search tool and verify context","Refuse all images","Ask for payment"], ans:1, exp:"Use image search for real-world images; verify accuracy."},
+    {id:"T3", diff:3, cat:"Tools", stem:"You need precise numbers (laws/prices). What’s the robust pattern?", opts:["Rely on recall","State caveats only","Browse, cite sources, include dates","Ask the user to trust you"], ans:2, exp:"Browse, cite, and date-stamp for volatile facts."},
+
+    // Evaluation
+    {id:"E1", diff:1, cat:"Evaluation", stem:"Accuracy measures…", opts:["Speed","Share of correct answers","Confidence only","Latency variance"], ans:1, exp:"Accuracy is the fraction of correct items."},
+    {id:"E2", diff:2, cat:"Evaluation", stem:"Brier score for binary outcomes uses…", opts:["(p − y)^2","Precision/Recall","ROUGE-L","Edit distance"], ans:0, exp:"Brier = (predicted probability − outcome)^2 for binary events."},
+    {id:"E3", diff:3, cat:"Evaluation", stem:"What indicates overconfidence?", opts:["Confidence ≈ accuracy","Confidence > accuracy consistently","Confidence < accuracy","Random variation"], ans:1, exp:"Overconfidence: predicted probability exceeds actual accuracy."}
+  ];
+
+  const CATEGORIES = [...new Set(QUESTION_BANK.map(q=>q.cat))];
+
+  // =============================================================
+  // State
+  // =============================================================
+  const state = {
+    total: 12,
+    index: 0,
+    usedIds: new Set(),
+    answers: [], // {id, correct, p, diff, cat, timeMs, choice}
+    startTime: null,
+    qStart: null,
+    ability: 0, // -1..1
+    lastOutcomes: [], // last 3 weighted outcomes
+    rng: Math.random,
+    settings: { showExplain: 'immediate', reuseIfNeeded: true, shuffleWithinDiff: true, startDiff: 2, activeCats: new Set(CATEGORIES), seed: null },
+    current: null,
+  };
+
+  // =============================================================
+  // Elements
+  // =============================================================
+  const el = {
+    chips: document.getElementById('chips'),
+    progressBar: document.getElementById('progressBar'),
+    qText: document.getElementById('qText'),
+    options: document.getElementById('options'),
+    conf: document.getElementById('conf'),
+    confVal: document.getElementById('confVal'),
+    btnSubmit: document.getElementById('btnSubmit'),
+    btnNext: document.getElementById('btnNext'),
+    feedback: document.getElementById('feedback'),
+    statQ: document.getElementById('statQ'),
+    statAcc: document.getElementById('statAcc'),
+    statConf: document.getElementById('statConf'),
+    statBrier: document.getElementById('statBrier'),
+    results: document.getElementById('results'),
+    attemptTime: document.getElementById('attemptTime'),
+    rScore: document.getElementById('rScore'),
+    rConf: document.getElementById('rConf'),
+    rBrier: document.getElementById('rBrier'),
+    rCalib: document.getElementById('rCalib'),
+    perCategory: document.getElementById('perCategory'),
+    btnDownloadJSON: document.getElementById('btnDownloadJSON'),
+    btnDownloadCSV: document.getElementById('btnDownloadCSV'),
+    btnStartOver: document.getElementById('btnStartOver'),
+    btnReset: document.getElementById('btnReset'),
+    btnSettings: document.getElementById('btnSettings'),
+    dlg: document.getElementById('dlgSettings'),
+    dlgClose: document.getElementById('dlgClose'),
+    numQ: document.getElementById('numQ'),
+    seed: document.getElementById('seed'),
+    showExplain: document.getElementById('showExplain'),
+    startDiff: document.getElementById('startDiff'),
+    catToggles: document.getElementById('catToggles'),
+    shuffleWithinDiff: document.getElementById('shuffleWithinDiff'),
+    reuseIfNeeded: document.getElementById('reuseIfNeeded'),
+  };
+
+  // Build category toggles
+  function buildCatToggles(){
+    el.catToggles.innerHTML = '';
+    CATEGORIES.forEach(c=>{
+      const id = 'cat_'+c;
+      const wrap = document.createElement('label');
+      wrap.className = 'cat-toggle';
+      wrap.innerHTML = `<input type="checkbox" id="${id}" checked /> ${c}`;
+      el.catToggles.appendChild(wrap);
+    });
+  }
+
+  // =============================================================
+  // Core functions
+  // =============================================================
+  function init(seedStr=null){
+    if(seedStr && seedStr.trim().length){
+      const h = xmur3(seedStr)();
+      state.rng = mulberry32(h);
+      state.settings.seed = seedStr;
+    } else {
+      state.rng = Math.random; state.settings.seed = null;
+    }
+    state.total = Math.max(6, Math.min(40, parseInt(el.numQ.value || '12', 10)));
+    state.index = 0; state.usedIds.clear(); state.answers = []; state.ability = (parseInt(el.startDiff.value,10)-2)*0.6; state.lastOutcomes = [];
+    state.settings.showExplain = el.showExplain.value;
+    state.settings.shuffleWithinDiff = el.shuffleWithinDiff.checked;
+    state.settings.reuseIfNeeded = el.reuseIfNeeded.checked;
+    state.settings.activeCats = new Set();
+    CATEGORIES.forEach(c=>{ const ck = document.getElementById('cat_'+c); if(ck && ck.checked) state.settings.activeCats.add(c); });
+    state.startTime = performance.now();
+    el.results.classList.add('hidden');
+    el.btnNext.classList.add('hidden');
+    el.feedback.className = 'feedback hidden';
+    el.conf.value = 70; el.confVal.textContent = '70%';
+    updateChips();
+    nextQuestion(true);
+  }
+
+  function updateChips(){
+    const chips = [];
+    const diff = difficultyFromAbility(state.ability);
+    chips.push(chip(`Difficulty: ${labelDiff(diff)}`, diff));
+    chips.push(`<span class="chip"><span class="dot" style="background:${state.settings.seed? '#60a5fa':'#9ca3af'}"></span>Seed: ${state.settings.seed || 'random'}</span>`);
+    chips.push(`<span class="chip"><span class="dot" style="background:#34d399"></span>Categories: ${[...state.settings.activeCats].join(', ')}</span>`);
+    el.chips.innerHTML = chips.join('');
+  }
+
+  function chip(text, diff){
+    const cls = diff? (`chip ${['','easy','medium','hard'][diff]}`) : 'chip';
+    return `<span class="${cls}"><span class="dot"></span>${text}</span>`;
+  }
+
+  function labelDiff(d){ return ['','Easy','Medium','Hard'][d] || '—'; }
+
+  function difficultyFromAbility(a){ return a > 0.3 ? 3 : (a < -0.3 ? 1 : 2); }
+
+  function sampleQuestion(){
+    // Pick target difficulty based on ability and recent performance
+    const targetDiff = difficultyFromAbility(state.ability);
+    let pool = QUESTION_BANK.filter(q=> q.diff===targetDiff && state.settings.activeCats.has(q.cat) && !state.usedIds.has(q.id));
+
+    if(pool.length===0 && state.settings.shuffleWithinDiff){
+      // fallback within same diff any category
+      pool = QUESTION_BANK.filter(q=> q.diff===targetDiff && !state.usedIds.has(q.id));
+    }
+    if(pool.length===0){
+      // fallback other diffs
+      pool = QUESTION_BANK.filter(q=> state.settings.activeCats.has(q.cat) && !state.usedIds.has(q.id));
+    }
+    if(pool.length===0 && state.settings.reuseIfNeeded){
+      pool = QUESTION_BANK.filter(q=> state.settings.activeCats.has(q.cat));
+    }
+    if(pool.length===0){
+      // ultimate fallback
+      pool = QUESTION_BANK.slice();
+    }
+
+    const rng = state.rng;
+    const pick = seededShuffle(pool, rng)[0];
+    return pick;
+  }
+
+  function renderQuestion(q){
+    state.current = q; state.qStart = performance.now();
+    el.qText.textContent = q.stem;
+    el.options.innerHTML = '';
+
+    const choices = q.opts.map((t,i)=>({i, t}));
+    // Basic shuffle of options but keep deterministic if seed set: use rng ordering
+    const shuffled = seededShuffle(choices, state.rng);
+
+    shuffled.forEach(({i,t}, idx)=>{
+      const li = document.createElement('li'); li.className = 'option'; li.tabIndex = 0; li.setAttribute('role','option');
+      li.innerHTML = `<input name="opt" type="radio" id="opt${idx}" value="${i}" aria-label="Option ${idx+1}"><label for="opt${idx}">${t}</label>`;
+      li.addEventListener('click', ()=>{ const inp = li.querySelector('input'); inp.checked = true; });
+      li.addEventListener('keydown', (e)=>{ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); li.click(); }});
+      el.options.appendChild(li);
+    });
+
+    el.statQ.textContent = `${state.index+1}/${state.total}`;
+    el.progressBar.style.width = `${((state.index)/state.total)*100}%`;
+
+    el.feedback.className = 'feedback hidden';
+    el.btnSubmit.disabled = false; el.btnNext.classList.add('hidden');
+
+    updateChips();
+  }
+
+  function nextQuestion(initial=false){
+    if(!initial && state.index >= state.total){ finish(); return; }
+    const q = sampleQuestion();
+    if(!state.settings.reuseIfNeeded) state.usedIds.add(q.id);
+    renderQuestion(q);
+  }
+
+  function getSelected(){
+    const inputs = el.options.querySelectorAll('input[name="opt"]');
+    for(const r of inputs){ if(r.checked) return parseInt(r.value,10); }
+    return null;
+  }
+
+  function submit(){
+    const choice = getSelected();
+    if(choice===null){
+      el.feedback.className = 'feedback no';
+      el.feedback.innerHTML = 'Please select an option.';
+      return;
+    }
+    const q = state.current; const correct = (choice === q.ans);
+    const p = parseInt(el.conf.value,10)/100; // confidence as probability
+    const timeMs = Math.max(0, (performance.now() - state.qStart)|0);
+
+    state.answers.push({ id:q.id, stem:q.stem, correct:+correct, p, diff:q.diff, cat:q.cat, timeMs, choice, ans:q.ans, opts:q.opts, exp:q.exp });
+
+    // Update ability (simple heuristic)
+    const outcome = (correct ? 1 : -1) * (p - 0.5) * (q.diff===3?1.2:(q.diff===2?1.0:0.8));
+    state.lastOutcomes.push(outcome); if(state.lastOutcomes.length>3) state.lastOutcomes.shift();
+    const delta = state.lastOutcomes.reduce((a,b)=>a+b,0) / 3; // avg recent
+    state.ability = Math.max(-1, Math.min(1, state.ability + delta));
+
+    // Immediate feedback?
+    const showNow = state.settings.showExplain === 'immediate';
+    el.feedback.className = 'feedback ' + (correct ? 'ok':'no');
+    el.feedback.innerHTML = `${correct? '✔️ Correct':'❌ Incorrect'} — <strong>${q.opts[q.ans]}</strong>${showNow? `<div class="muted" style="margin-top:6px;">${q.exp}</div>`:''}`;
+
+    // Update stats panel
+    const acc = accuracy(state.answers);
+    const avgP = mean(state.answers.map(a=>a.p));
+    const br = brier(state.answers);
+    el.statAcc.textContent = fmtPct(acc);
+    el.statConf.textContent = fmtPct(avgP);
+    el.statBrier.textContent = br.toFixed(3);
+
+    // Move
+    state.index++;
+    el.btnSubmit.disabled = true; el.btnNext.classList.remove('hidden');
+    el.progressBar.style.width = `${((state.index)/state.total)*100}%`;
+
+    if(state.index >= state.total){ el.btnNext.textContent = 'Finish'; }
+  }
+
+  function finish(){
+    // Aggregate
+    const acc = accuracy(state.answers);
+    const avgP = mean(state.answers.map(a=>a.p));
+    const br = brier(state.answers);
+    const calib = mean(state.answers.map(a=> Math.abs(a.p - a.correct)));
+
+    el.rScore.textContent = `${Math.round(acc*100)}% (${sum(state.answers.map(a=>a.correct))}/${state.answers.length})`;
+    el.rConf.textContent = fmtPct(avgP);
+    el.rBrier.textContent = br.toFixed(3);
+    el.rCalib.textContent = (calib*100).toFixed(1) + '%';
+
+    // Per-category
+    const cats = {};
+    for(const a of state.answers){
+      if(!cats[a.cat]) cats[a.cat] = [];
+      cats[a.cat].push(a);
+    }
+    const blocks = [];
+    for(const [k, arr] of Object.entries(cats)){
+      const accK = accuracy(arr); const brK = brier(arr); const avgPK = mean(arr.map(a=>a.p));
+      blocks.push(`<div class="stat"><div class="muted">${k}</div><div class="big">${Math.round(accK*100)}% • Brier ${brK.toFixed(3)} • Avg P ${fmtPct(avgPK)}</div></div>`);
+    }
+    el.perCategory.innerHTML = `<div class="row row-2">${blocks.join('')}</div>`;
+
+    const elapsed = (performance.now() - state.startTime)/1000;
+    el.attemptTime.textContent = `Time: ${elapsed.toFixed(1)} s`;
+
+    // Save to localStorage
+    const attempt = {
+      started: new Date(Date.now() - elapsed*1000).toISOString(),
+      finished: new Date().toISOString(),
+      total: state.total,
+      answers: state.answers,
+      acc, avgP, br, calib, seed: state.settings.seed,
+      cats: Object.fromEntries(Object.entries(cats).map(([k,arr])=>[k, {acc:accuracy(arr), br:brier(arr), avgP:mean(arr.map(a=>a.p))}]))
+    };
+    saveAttempt(attempt);
+
+    // Toggle views
+    document.querySelector('.card').scrollIntoView({behavior:'smooth'});
+    el.results.classList.remove('hidden');
+  }
+
+  function accuracy(arr){ if(!arr.length) return 0; return sum(arr.map(a=>a.correct)) / arr.length; }
+  function brier(arr){ if(!arr.length) return 0; return mean(arr.map(a=> (a.p - a.correct)**2 )); }
+  function mean(xs){ if(!xs.length) return 0; return xs.reduce((a,b)=>a+b,0)/xs.length; }
+  function sum(xs){ return xs.reduce((a,b)=>a+b,0); }
+  function fmtPct(x){ return isFinite(x)? Math.round(x*100)+'%':'–'; }
+
+  function saveAttempt(obj){ try{
+    const key = 'adaptiveQuizAttempts';
+    const arr = JSON.parse(localStorage.getItem(key) || '[]');
+    arr.push(obj); localStorage.setItem(key, JSON.stringify(arr));
+  } catch(e){ console.warn('Could not save attempt', e); }
+  }
+
+  // Export helpers
+  function downloadJSON(){
+    const key='adaptiveQuizAttempts'; const arr = JSON.parse(localStorage.getItem(key) || '[]');
+    const blob = new Blob([JSON.stringify(arr, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob); const a = document.createElement('a');
+    a.href = url; a.download = 'llm_adaptive_quiz_attempts.json'; a.click(); URL.revokeObjectURL(url);
+  }
+  function downloadCSV(){
+    const key='adaptiveQuizAttempts'; const arr = JSON.parse(localStorage.getItem(key) || '[]');
+    const rows = [['started','finished','qIndex','id','category','difficulty','stem','choiceIndex','correctIndex','correct','confidence','timeMs']];
+    arr.forEach(at=>{
+      at.answers.forEach((a,i)=>{
+        rows.push([at.started, at.finished, i+1, a.id, a.cat, a.diff, a.stem.replace(/\n/g,' '), a.choice, a.ans, a.correct, a.p, a.timeMs]);
+      });
+    });
+    const csv = rows.map(r=> r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'llm_adaptive_quiz_attempts.csv'; a.click(); URL.revokeObjectURL(url);
+  }
+
+  // =============================================================
+  // Wiring
+  // =============================================================
+  buildCatToggles();
+
+  el.conf.addEventListener('input', ()=>{ el.confVal.textContent = el.conf.value + '%'; });
+  el.btnSubmit.addEventListener('click', submit);
+  el.btnNext.addEventListener('click', ()=>{ if(state.index>=state.total){ finish(); } else { nextQuestion(); } });
+  el.btnReset.addEventListener('click', ()=>{ if(confirm('Reset current quiz?')) init(state.settings.seed); });
+
+  // Keyboard shortcuts
+  window.addEventListener('keydown', (e)=>{
+    if(e.altKey && e.key.toLowerCase()==='r'){ e.preventDefault(); init(state.settings.seed); }
+    if(e.key==='Enter' && !el.btnSubmit.disabled){ e.preventDefault(); submit(); }
+    if(e.key.toLowerCase()==='n' && !el.btnNext.classList.contains('hidden')){ e.preventDefault(); if(state.index>=state.total){ finish(); } else { nextQuestion(); } }
+    if(/^[1-9]$/.test(e.key)){
+      const n = parseInt(e.key,10)-1; const inputs = el.options.querySelectorAll('input[name="opt"]');
+      if(inputs[n]){ inputs[n].checked = true; inputs[n].focus(); }
+    }
+  });
+
+  // Settings dialog
+  el.btnSettings.addEventListener('click', ()=>{ el.dlg.showModal(); });
+  el.dlgClose.addEventListener('click', ()=>{ el.dlg.close(); });
+  el.dlg.addEventListener('close', ()=>{
+    init(el.seed.value);
+  });
+
+  el.btnDownloadJSON.addEventListener('click', downloadJSON);
+  el.btnDownloadCSV .addEventListener('click', downloadCSV);
+  el.btnStartOver   .addEventListener('click', ()=>{ el.results.classList.add('hidden'); init(state.settings.seed); document.querySelector('.card').scrollIntoView({behavior:'smooth'}); });
+
+  // First run
+  init();
+  </script>
+</body>
+</html>
