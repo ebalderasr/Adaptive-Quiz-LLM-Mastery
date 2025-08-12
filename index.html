@@ -215,7 +215,7 @@
       <div class="grid2">
         <div class="field">
           <label for="numQ"># Questions</label>
-          <input id="numQ" type="number" min="6" max="40" step="1" value="12" />
+          <input id="numQ" type="number" min="6" max="60" step="1" value="12" />
         </div>
         <div class="field">
           <label for="seed">Seed (optional)</label>
@@ -243,7 +243,7 @@
       </div>
       <div style="margin-top:12px;">
         <label class="cat-toggle"><input type="checkbox" id="shuffleWithinDiff" checked /> Shuffle within same difficulty</label>
-        <label class="cat-toggle"><input type="checkbox" id="reuseIfNeeded" checked /> Allow reuse if pool exhausted</label>
+        <label class="cat-toggle"><input type="checkbox" id="reuseIfNeeded" /> Allow reuse if pool exhausted</label>
       </div>
       <div class="muted" style="margin-top:14px;">Tip: Use a fixed Seed to reproduce an attempt deterministically.</div>
     </div>
@@ -263,44 +263,72 @@
   // Difficulty: 1=Easy, 2=Medium, 3=Hard
   // =============================================================
   const QUESTION_BANK = [
-    // Prompting
-    {id:"P1", diff:1, cat:"Prompting", stem:"Which prompt trait most reduces ambiguity?", opts:["Asking for creativity only","Including a concrete goal and constraints","Using emojis to make it friendlier","Keeping it as short as possible"], ans:1, exp:"Clear goals + constraints reduce the solution space and ambiguity."},
-    {id:"P2", diff:2, cat:"Prompting", stem:"Chain-of-thought (CoT) is primarily used to…", opts:["Hide the reasoning from the user","Force the model to browse the web","Encourage step-by-step reasoning","Speed up generation by skipping steps"], ans:2, exp:"CoT (hidden or structured) nudges step-by-step reasoning for complex tasks."},
-    {id:"P3", diff:3, cat:"Prompting", stem:"You need reproducibility across reruns. Which is LEAST helpful?", opts:["Providing deterministic inputs and a fixed seed","Specifying formats and units explicitly","Adding few-shot examples that vary in style","Requesting the same temperature setting"], ans:2, exp:"Variable few-shot styles introduce stochasticity; consistent, fixed examples are better."},
-    {id:"P4", diff:2, cat:"Prompting", stem:"Best next step when a user request is underspecified?", opts:["Answer anyway with default assumptions","Refuse the task","Ask targeted clarifying questions","Output nothing until user clarifies"], ans:2, exp:"Targeted clarifying questions reduce rework and misalignment."},
-    {id:"P5", diff:1, cat:"Prompting", stem:"Which element belongs in a good instruction block?", opts:["Personal anecdotes","Precise acceptance criteria","Random quotes","Multiple emojis"], ans:1, exp:"Acceptance criteria define what success looks like."},
-    {id:"P6", diff:3, cat:"Prompting", stem:"For multi-step coding tasks with tests, which strategy is MOST robust?", opts:["Single giant prompt","Scaffolding with verify-at-each-step checks","Let the model self-select steps silently","Ask for final patch only"], ans:1, exp:"Scaffolding with explicit verification reduces compounding errors."},
+  // Prompting (12)
+  {id:"P1", diff:1, cat:"Prompting", stem:"Which prompt trait most reduces ambiguity?", opts:["Asking for creativity only","Including a concrete goal and constraints","Using emojis to make it friendlier","Keeping it as short as possible"], ans:1, exp:"Clear goals + constraints reduce the solution space and ambiguity."},
+  {id:"P2", diff:2, cat:"Prompting", stem:"Chain-of-thought (CoT) is primarily used to…", opts:["Hide the reasoning from the user","Force the model to browse the web","Encourage step-by-step reasoning","Speed up generation by skipping steps"], ans:2, exp:"CoT (hidden or structured) nudges step-by-step reasoning for complex tasks."},
+  {id:"P3", diff:3, cat:"Prompting", stem:"You need reproducibility across reruns. Which is LEAST helpful?", opts:["Providing deterministic inputs and a fixed seed","Specifying formats and units explicitly","Adding few-shot examples that vary in style","Requesting the same temperature setting"], ans:2, exp:"Variable few-shot styles introduce stochasticity; consistent, fixed examples are better."},
+  {id:"P4", diff:2, cat:"Prompting", stem:"Best next step when a user request is underspecified?", opts:["Answer anyway with default assumptions","Refuse the task","Ask targeted clarifying questions","Output nothing until user clarifies"], ans:2, exp:"Targeted clarifying questions reduce rework and misalignment."},
+  {id:"P5", diff:1, cat:"Prompting", stem:"Which element belongs in a good instruction block?", opts:["Personal anecdotes","Precise acceptance criteria","Random quotes","Multiple emojis"], ans:1, exp:"Acceptance criteria define what success looks like."},
+  {id:"P6", diff:3, cat:"Prompting", stem:"For multi-step coding tasks with tests, which strategy is MOST robust?", opts:["Single giant prompt","Scaffolding with verify-at-each-step checks","Let the model self-select steps silently","Ask for final patch only"], ans:1, exp:"Scaffolding with explicit verification reduces compounding errors."},
+  {id:"P7", diff:1, cat:"Prompting", stem:"What helps downstream parsing the MOST?", opts:["Asking for bullets","Specifying a JSON schema with required keys","Adding a friendly emoji","Lowering temperature"], ans:1, exp:"Explicit output schemas (e.g., JSON with required keys) make parsing reliable."},
+  {id:"P8", diff:2, cat:"Prompting", stem:"To avoid unit confusion, the best mitigation is…", opts:["Let the model decide","Use SI units and state conversions explicitly","Rely on context","Trust defaults"], ans:1, exp:"State SI units and any conversions; ambiguity here propagates to errors."},
+  {id:"P9", diff:3, cat:"Prompting", stem:"Which few-shot design best enforces style?", opts:["Examples with inconsistent tone","A single very long example","Multiple concise exemplars with the same format","No examples; rely on role"], ans:2, exp:"Consistent, concise exemplars anchor the target format and tone."},
+  {id:"P10", diff:2, cat:"Prompting", stem:"When should you add acceptance tests to the prompt?", opts:["Only for creative tasks","When objective correctness can be checked","Never, tests slow the model","Only after deployment"], ans:1, exp:"If outputs have objective checks, include them to reduce drift."},
+  {id:"P11", diff:2, cat:"Prompting", stem:"What is a good practice for long tasks?", opts:["One-shot everything","Break into stages with checkpoints","Hide instructions in comments","Repeat the same request"], ans:1, exp:"Staging + checkpoints (scaffolding) control error accumulation."},
+  {id:"P12", diff:3, cat:"Prompting", stem:"Temperature vs. top_p: which is TRUE?", opts:["Both do the same deterministically","Temperature scales logits; top_p truncates the nucleus","Temperature truncates; top_p rescales","They only affect speed"], ans:1, exp:"Temperature rescales distribution; top_p samples from a truncated cumulative mass."},
 
-    // Memory
-    {id:"M1", diff:1, cat:"Memory", stem:"Short-term/chat history memory is mainly…", opts:["Persistent across devices","Cleared when starting a new thread","Editable by the OS only","Unrelated to context length"], ans:1, exp:"New threads reset chat history; it is scoped to the conversation."},
-    {id:"M2", diff:2, cat:"Memory", stem:"Which is a safe long-lived memory to store?", opts:["Confidential passwords","Ephemeral one-time codes","User’s stable tooling preferences","Sensitive health diagnoses without consent"], ans:2, exp:"Stable preferences improve UX; sensitive data requires explicit consent."},
-    {id:"M3", diff:3, cat:"Memory", stem:"Which risk increases with overly aggressive memory usage?", opts:["Lower personalization","Context dilution and leakage","Faster responses","Better calibration"], ans:1, exp:"Too much memory can dilute context and risk leaking irrelevant/old info."},
-    {id:"M4", diff:2, cat:"Memory", stem:"Best practice for updating a user preference memory?", opts:["Never overwrite; append forever","Overwrite silently","Confirm changes or ask for clarification","Delete all memories periodically"], ans:2, exp:"Confirming prevents accidental overwrites and respects user intent."},
-    {id:"M5", diff:1, cat:"Memory", stem:"Which is NOT a memory type?", opts:["Model weights","Conversation context","External knowledge base","CPU L3 cache"], ans:3, exp:"L3 cache is hardware, not an LLM memory modality."},
-    {id:"M6", diff:3, cat:"Memory", stem:"Ideal behavior after a user says ‘Forget X’?", opts:["Keep it but hide it","Delete it and confirm","Export it elsewhere","Ignore if useful"], ans:1, exp:"Respect deletion requests and confirm completion."},
+  // Memory (10)
+  {id:"M1", diff:1, cat:"Memory", stem:"Short-term/chat history memory is mainly…", opts:["Persistent across devices","Cleared when starting a new thread","Editable by the OS only","Unrelated to context length"], ans:1, exp:"New threads reset chat history; it is scoped to the conversation."},
+  {id:"M2", diff:2, cat:"Memory", stem:"Which is a safe long-lived memory to store?", opts:["Confidential passwords","Ephemeral one-time codes","User’s stable tooling preferences","Sensitive health diagnoses without consent"], ans:2, exp:"Stable preferences improve UX; sensitive data requires explicit consent."},
+  {id:"M3", diff:3, cat:"Memory", stem:"Which risk increases with overly aggressive memory usage?", opts:["Lower personalization","Context dilution and leakage","Faster responses","Better calibration"], ans:1, exp:"Too much memory can dilute context and risk leaking irrelevant/old info."},
+  {id:"M4", diff:2, cat:"Memory", stem:"Best practice for updating a user preference memory?", opts:["Never overwrite; append forever","Overwrite silently","Confirm changes or ask for clarification","Delete all memories periodically"], ans:2, exp:"Confirming prevents accidental overwrites and respects user intent."},
+  {id:"M5", diff:1, cat:"Memory", stem:"Which is NOT a memory type?", opts:["Model weights","Conversation context","External knowledge base","CPU L3 cache"], ans:3, exp:"L3 cache is hardware, not an LLM memory modality."},
+  {id:"M6", diff:3, cat:"Memory", stem:"Ideal behavior after a user says ‘Forget X’?", opts:["Keep it but hide it","Delete it and confirm","Export it elsewhere","Ignore if useful"], ans:1, exp:"Respect deletion requests and confirm completion."},
+  {id:"M7", diff:1, cat:"Memory", stem:"Context window limits are measured primarily in…", opts:["Milliseconds","Tokens","Characters","Words"], ans:1, exp:"Most models limit by tokens, not plain characters or time."},
+  {id:"M8", diff:2, cat:"Memory", stem:"Storing secrets in persistent memory is…", opts:["Recommended","Allowed by default","A bad practice unless explicitly requested and secured","Required for all users"], ans:2, exp:"Avoid storing secrets; only with explicit consent and proper safeguards."},
+  {id:"M9", diff:2, cat:"Memory", stem:"When a user says ‘From now on, call me X’, a good step is…", opts:["Assume it’s temporary","Store it as a stable preference and confirm","Ignore it","Ask for government ID"], ans:1, exp:"Names and stable preferences are good candidates—confirm before storing."},
+  {id:"M10", diff:3, cat:"Memory", stem:"A symptom of stale/incorrect memory is…", opts:["Faster answers","Contradicting newer user info","Shorter prompts","Lower latency"], ans:1, exp:"Outdated memory can conflict with new instructions; prefer recency."},
 
-    // Roles / Persona
-    {id:"R1", diff:1, cat:"Roles", stem:"A ‘role’ in prompting primarily…", opts:["Defines legal liability","Sets behavioral guardrails and tone","Changes the base model","Grants new APIs"], ans:1, exp:"Role prompts define tone/guardrails but don’t change the base weights."},
-    {id:"R2", diff:2, cat:"Roles", stem:"What’s a common failure mode of personas?", opts:["Higher factuality","Style drift and over-commitment","Better calibration","Lower latency"], ans:1, exp:"Personas can induce style drift and over-commit to a voice."},
-    {id:"R3", diff:3, cat:"Roles", stem:"Best way to test persona impact?", opts:["Subjective feeling only","A/B with identical tasks and measures","Change several variables at once","Ask the model if persona helps"], ans:1, exp:"A/B testing with fixed tasks isolates persona effects."},
-    {id:"R4", diff:2, cat:"Roles", stem:"Which belongs in a role card?", opts:["Keyboard layout","Do’s and Don’ts","CPU frequency","Browser version"], ans:1, exp:"Role cards include Do/Don’t, goals, and examples."},
+  // Roles / Persona (8)
+  {id:"R1", diff:1, cat:"Roles", stem:"A ‘role’ in prompting primarily…", opts:["Defines legal liability","Sets behavioral guardrails and tone","Changes the base model","Grants new APIs"], ans:1, exp:"Role prompts define tone/guardrails but don’t change the base weights."},
+  {id:"R2", diff:2, cat:"Roles", stem:"What’s a common failure mode of personas?", opts:["Higher factuality","Style drift and over-commitment","Better calibration","Lower latency"], ans:1, exp:"Personas can induce style drift and over-commit to a voice."},
+  {id:"R3", diff:3, cat:"Roles", stem:"Best way to test persona impact?", opts:["Subjective feeling only","A/B with identical tasks and measures","Change several variables at once","Ask the model if persona helps"], ans:1, exp:"A/B testing with fixed tasks isolates persona effects."},
+  {id:"R4", diff:2, cat:"Roles", stem:"Which belongs in a role card?", opts:["Keyboard layout","Do’s and Don’ts","CPU frequency","Browser version"], ans:1, exp:"Role cards include Do/Don’t, goals, and examples."},
+  {id:"R5", diff:2, cat:"Roles", stem:"If system and user instructions conflict, which prevails?", opts:["User","System","Whichever is longer","Random"], ans:1, exp:"Instruction hierarchy: system > developer > user > content."},
+  {id:"R6", diff:2, cat:"Roles", stem:"A sign your persona is harming quality is…", opts:["Consistent tone","Improved citations","Reduced task focus and style drift","Lower latency"], ans:2, exp:"Overly strong personas can distract from task objectives."},
+  {id:"R7", diff:3, cat:"Roles", stem:"To keep persona effects measurable, you should…", opts:["Vary several variables at once","Use identical tasks and metrics across runs","Change the model mid-test","Skip seeds"], ans:1, exp:"Hold all else equal to isolate the persona variable."},
+  {id:"R8", diff:1, cat:"Roles", stem:"A minimal role card includes…", opts:["Do/Don’t, goals, examples","CPU specs","Browser version","Team roster"], ans:0, exp:"Role cards define goals, do/don’t, and examples to anchor behavior."},
 
-    // Hallucination / Verification
-    {id:"H1", diff:1, cat:"Hallucination", stem:"A model ‘hallucination’ is…", opts:["A GPU error","A confident but false statement","A slow response","A refusal"], ans:1, exp:"Hallucinations are fluent, confident inaccuracies."},
-    {id:"H2", diff:2, cat:"Hallucination", stem:"Which plan best reduces hallucinations on factual queries?", opts:["Lower temperature only","Ask for sources + cross-check with a reliable tool","Use more emojis","Make the prompt longer without changes"], ans:1, exp:"Source requests + independent verification minimizes factual errors."},
-    {id:"H3", diff:3, cat:"Hallucination", stem:"When citing, which practice is MOST reliable?", opts:["Single source always","Multiple reputable sources with dates","Prefer social media","Skip dates to reduce bias"], ans:1, exp:"Use multiple reputable sources and include dates for context."},
-    {id:"H4", diff:2, cat:"Hallucination", stem:"What’s a red flag in model outputs?", opts:["Unfamiliar proper nouns stated with certainty","Hedging language","Explicit uncertainty","Instructions for verification"], ans:0, exp:"Confident unknown names often signal hallucination; verify."},
+  // Hallucination / Verification (8)
+  {id:"H1", diff:1, cat:"Hallucination", stem:"A model ‘hallucination’ is…", opts:["A GPU error","A confident but false statement","A slow response","A refusal"], ans:1, exp:"Hallucinations are fluent, confident inaccuracies."},
+  {id:"H2", diff:2, cat:"Hallucination", stem:"Which plan best reduces hallucinations on factual queries?", opts:["Lower temperature only","Ask for sources + cross-check with a reliable tool","Use more emojis","Make the prompt longer without changes"], ans:1, exp:"Source requests + independent verification minimizes factual errors."},
+  {id:"H3", diff:3, cat:"Hallucination", stem:"When citing, which practice is MOST reliable?", opts:["Single source always","Multiple reputable sources with dates","Prefer social media","Skip dates to reduce bias"], ans:1, exp:"Use multiple reputable sources and include dates for context."},
+  {id:"H4", diff:2, cat:"Hallucination", stem:"What’s a red flag in model outputs?", opts:["Unfamiliar proper nouns stated with certainty","Hedging language","Explicit uncertainty","Instructions for verification"], ans:0, exp:"Confident unknown names often signal hallucination; verify."},
+  {id:"H5", diff:2, cat:"Hallucination", stem:"A classic sign of fabricated citations is…", opts:["Multiple sources with DOIs","Links that 404 or don’t match claims","Publisher pages with authors","Dates and issue numbers"], ans:1, exp:"Check that sources resolve and match the quoted claim."},
+  {id:"H6", diff:1, cat:"Hallucination", stem:"Time-sensitive claims should include…", opts:["Poetry","Absolute dates and sources","ASCII art","Developer jokes"], ans:1, exp:"Date-stamp volatile facts and cite reputable sources."},
+  {id:"H7", diff:2, cat:"Hallucination", stem:"Faced with an unknown acronym, best first step?", opts:["Invent a meaning","Ask/confirm expansion and context","Ignore it","Translate to emojis"], ans:1, exp:"Clarify expansion and verify with a source before using it."},
+  {id:"H8", diff:3, cat:"Hallucination", stem:"Which mitigation helps with stale knowledge risks?", opts:["Rely on recall","Explicit browsing with citations and dates","More emojis","Higher temperature"], ans:1, exp:"Browsing with citations/dates mitigates outdated knowledge."},
 
-    // Tool use
-    {id:"T1", diff:1, cat:"Tools", stem:"When should you use a web browsing tool?", opts:["Always","Never","When info is time-sensitive or niche","Only if the user asks for it"], ans:2, exp:"Use browsing for time-sensitive, niche, or uncertain facts."},
-    {id:"T2", diff:2, cat:"Tools", stem:"Best action when a task needs images from the web?", opts:["Generate from memory","Use an image search tool and verify context","Refuse all images","Ask for payment"], ans:1, exp:"Use image search for real-world images; verify accuracy."},
-    {id:"T3", diff:3, cat:"Tools", stem:"You need precise numbers (laws/prices). What’s the robust pattern?", opts:["Rely on recall","State caveats only","Browse, cite sources, include dates","Ask the user to trust you"], ans:2, exp:"Browse, cite, and date-stamp for volatile facts."},
+  // Tool use (8)
+  {id:"T1", diff:1, cat:"Tools", stem:"When should you use a web browsing tool?", opts:["Always","Never","When info is time-sensitive or niche","Only if the user asks for it"], ans:2, exp:"Use browsing for time-sensitive, niche, or uncertain facts."},
+  {id:"T2", diff:2, cat:"Tools", stem:"Best action when a task needs images from the web?", opts:["Generate from memory","Use an image search tool and verify context","Refuse all images","Ask for payment"], ans:1, exp:"Use image search for real-world images; verify accuracy."},
+  {id:"T3", diff:3, cat:"Tools", stem:"You need precise numbers (laws/prices). What’s the robust pattern?", opts:["Rely on recall","State caveats only","Browse, cite sources, include dates","Ask the user to trust you"], ans:2, exp:"Browse, cite, and date-stamp for volatile facts."},
+  {id:"T4", diff:2, cat:"Tools", stem:"When analyzing PDFs with figures, you should…", opts:["Rely on parsed text only","Use a screenshot tool for the relevant pages","Ignore tables","Copy everything verbatim"], ans:1, exp:"Screenshots capture tables/figures not present in parsed text."},
+  {id:"T5", diff:2, cat:"Tools", stem:"Product carousel is required when…", opts:["Discussing abstract theory","Recommending retail products with web sources","Writing poetry","Translating text"], ans:1, exp:"Use product carousel for retail recommendations with web-backed picks."},
+  {id:"T6", diff:1, cat:"Tools", stem:"When should you NOT browse?", opts:["Summarizing text the user provided","Looking up news","Checking recent laws","Verifying exchange rates"], ans:0, exp:"Don’t browse for pure summarization of provided text."},
+  {id:"T7", diff:1, cat:"Tools", stem:"Image carousel is best used for…", opts:["Compiling code","Showing people/animals/locations or helpful visuals","Math proofs","Binary diffs"], ans:1, exp:"Use it liberally when images aid understanding (people/animals/places)."},
+  {id:"T8", diff:2, cat:"Tools", stem:"For weather in a specific city, prefer…", opts:["Free-form web search","Guessing from climate","The built-in weather tool/widget","Ignoring the request"], ans:2, exp:"Use the weather tool for precise forecasts and widgets."},
 
-    // Evaluation
-    {id:"E1", diff:1, cat:"Evaluation", stem:"Accuracy measures…", opts:["Speed","Share of correct answers","Confidence only","Latency variance"], ans:1, exp:"Accuracy is the fraction of correct items."},
-    {id:"E2", diff:2, cat:"Evaluation", stem:"Brier score for binary outcomes uses…", opts:["(p − y)^2","Precision/Recall","ROUGE-L","Edit distance"], ans:0, exp:"Brier = (predicted probability − outcome)^2 for binary events."},
-    {id:"E3", diff:3, cat:"Evaluation", stem:"What indicates overconfidence?", opts:["Confidence ≈ accuracy","Confidence > accuracy consistently","Confidence < accuracy","Random variation"], ans:1, exp:"Overconfidence: predicted probability exceeds actual accuracy."}
-  ];
+  // Evaluation (8)
+  {id:"E1", diff:1, cat:"Evaluation", stem:"Accuracy measures…", opts:["Speed","Share of correct answers","Confidence only","Latency variance"], ans:1, exp:"Accuracy is the fraction of correct items."},
+  {id:"E2", diff:2, cat:"Evaluation", stem:"Brier score for binary outcomes uses…", opts:["(p − y)^2","Precision/Recall","ROUGE-L","Edit distance"], ans:0, exp:"Brier = (predicted probability − outcome)^2 for binary events."},
+  {id:"E3", diff:3, cat:"Evaluation", stem:"What indicates overconfidence?", opts:["Confidence ≈ accuracy","Confidence > accuracy consistently","Confidence < accuracy","Random variation"], ans:1, exp:"Overconfidence: predicted probability exceeds actual accuracy."},
+  {id:"E4", diff:2, cat:"Evaluation", stem:"Precision vs Recall: which pairing is correct?", opts:["Precision = TP/(TP+FN); Recall = TP/(TP+FP)","Precision = TP/(TP+FP); Recall = TP/(TP+FN)","Both are TP/(TP+TN)","Neither uses TP"], ans:1, exp:"Precision penalizes false positives; recall penalizes false negatives."},
+  {id:"E5", diff:1, cat:"Evaluation", stem:"Calibration means…", opts:["Confidence matches observed accuracy","High speed","Low latency","More tokens"], ans:0, exp:"Well-calibrated systems have predicted probabilities close to actual accuracy."},
+  {id:"E6", diff:2, cat:"Evaluation", stem:"A good A/B test changes…", opts:["Many variables at once","Exactly one variable while holding others fixed","Only the model and temperature","Prompt, model, and data simultaneously"], ans:1, exp:"Vary one factor to attribute differences correctly."},
+  {id:"E7", diff:1, cat:"Evaluation", stem:"Using a fixed seed helps with…", opts:["Latency","Deterministic shuffles and reproducibility","Higher accuracy","Lower cost"], ans:1, exp:"Seeds make sampling/shuffles reproducible for comparison."},
+  {id:"E8", diff:2, cat:"Evaluation", stem:"Which statement about Brier score is TRUE?", opts:["Higher is better","Lower is better","It ignores confidence","It’s identical to accuracy"], ans:1, exp:"Lower Brier indicates better probabilistic accuracy."}
+];
 
   const CATEGORIES = [...new Set(QUESTION_BANK.map(q=>q.cat))];
 
@@ -473,7 +501,7 @@
   function nextQuestion(initial=false){
     if(!initial && state.index >= state.total){ finish(); return; }
     const q = sampleQuestion();
-    if(!state.settings.reuseIfNeeded) state.usedIds.add(q.id);
+    state.usedIds.add(q.id);
     renderQuestion(q);
   }
 
